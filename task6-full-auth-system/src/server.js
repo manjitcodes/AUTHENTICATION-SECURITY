@@ -1,4 +1,5 @@
 require("dotenv").config();
+const mailer = require("./mailer");
 
 const express = require("express");
 const bcrypt = require("bcrypt");
@@ -90,7 +91,7 @@ app.post("/auth/login", async (req, res) => {
 
     // Use a dummy hash when the account doesn't exist to reduce timing leaks.
     const dummyHash =
-      "$2b$12$C6UzMDM.H6dfI/f/IKcEe.5b6qPZgTg6zV9W6mV4vM3e0pX1kzM5e";
+      "$2b$12$dS7cAQQulPR1E6Saeyp7..CcEbHgfJwhdryTW9FQexUwB7qb0rkhe";
 
     const passwordMatches = await bcrypt.compare(
       password,
@@ -248,7 +249,12 @@ app.post("/auth/request-reset", async (req, res) => {
 
         // Local training only. In a real app, send this via a trusted email service.
         if (process.env.NODE_ENV !== "production") {
-          console.log(`[LOCAL RESET TOKEN] ${email}: ${resetToken}`);
+         try {
+  await mailer.sendPasswordReset(email, resetToken);
+} catch (error) {
+  // Keep reset-token delivery failures private.
+  // Never log the raw token or expose delivery details.
+}
         }
       }
     }
@@ -365,6 +371,12 @@ app.get("/health", async (req, res) => {
 
 const port = Number(process.env.PORT) || 3005;
 
-app.listen(port, "127.0.0.1", () => {
-  console.log(`Full auth API running at http://127.0.0.1:${port}`);
-});
+const PORT = process.env.PORT || 3005;
+
+if (require.main === module) {
+  app.listen(PORT, "127.0.0.1", () => {
+    console.log(`Server running on http://127.0.0.1:${PORT}`);
+  });
+}
+
+module.exports = { app };
